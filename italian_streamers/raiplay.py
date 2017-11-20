@@ -29,11 +29,11 @@ from g2.libraries import cache
 from g2.libraries import client
 
 from g2.providers import title_fuzzy_equal
-from g2.providers.api import ProviderAPIBase
+from g2.providers.api import ProviderBase
 from g2.resolvers import ResolvedURL, ResolverError
 
 
-class ProviderAPI(ProviderAPIBase):
+class Provider(ProviderBase):
     """Raiplay provider"""
 
     raiplay_id = 'raiplay'

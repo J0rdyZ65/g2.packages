@@ -27,11 +27,11 @@ from cookielib import Cookie
 
 from g2.libraries import log
 from g2.libraries import client
-from g2.providers.api import ProviderAPIBase
+from g2.providers.api import ProviderBase
 from g2.resolvers import ResolvedURL
 
 
-class ProviderAPI(ProviderAPIBase):
+class Provider(ProviderBase):
     """Allflicks provider"""
 
     netflix_id = 'netflix'

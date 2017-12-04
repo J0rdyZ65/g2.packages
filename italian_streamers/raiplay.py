@@ -40,13 +40,14 @@ class Provider(ProviderBase):
 
     info = {
         'content': ['movie', 'episode'],
+        'language': ['it'],
         'sources': [raiplay_id],
     }
 
     base_url = "http://www.rai.it"
     program_list_url = "/dl/RaiTV/RaiPlayMobile/Prod/Config/programmiAZ-elenco.json"
 
-    def search(self, content, meta):
+    def search(self, content, language, meta):
         if content == 'movie':
             title = unidecode(meta['title'])
             tipology = 'Film'
@@ -72,7 +73,7 @@ class Provider(ProviderBase):
             log.debug('{m}.{f}: %s', repr(ex), trace=True)
             return []
 
-    def sources(self, content, match):
+    def sources(self, content, language, match):
         return [{
             'url': match['url'] if content == 'movie' else
                    urlparse.urlunparse(('extplayer', self.raiplay_id, match['url'], '', '', '')),

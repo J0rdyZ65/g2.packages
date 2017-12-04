@@ -36,38 +36,45 @@ class Provider(ProviderBase):
 
     netflix_id = 'netflix'
 
-    # (fixme) this should come from the API
-    language = 'it'
-
     info = {
         'content': ['movie', 'episode'],
+        # NOTE: when adding languages, please add also the corresponding base url below
+        #   Here language actually means country where 'en' is 'us'. We might to add
+        #   other pseudo-language such as en-uk to actually identify the country.
+        'language': ['en', 'it'],
         'sources': [netflix_id],
     }
 
     url_base = {
+        'en': 'https://www.allflicks.net/',
         'it': 'https://it.allflicks.net/',
-    }[language]
+    }
 
-    url_search = url_base + 'wp-content/themes/responsive/processing/processing.php'
+    url_search = {
+        'en': 'wp-content/themes/responsive/processing/processing_us.php',
+        'it': 'wp-content/themes/responsive/processing/processing.php',
+    }
+
     headers = {
         'Accept': 'application/json, text/javascript, */*; q=0.01',
         'Content-Type': 'application/x-www-form-urlencoded; charset UTF-8',
         'X-Requested-With': 'XMLHttpRequest',
-        'Referer': url_base,
     }
 
-    def search(self, content, meta):
-        with self._session() as ses:
+    def search(self, content, language, meta):
+        with self._session(language) as ses:
             search_term = meta['title'] if content == 'movie' else meta['tvshowtitle']
-            res = ses.post(self.url_search, headers=self.headers, data=self.payload(content, search_term, meta.get('year')))
+            self.headers['Referer'] = self.url_base[language]
+            res = ses.post(self.url_base[language] + self.url_search[language], headers=self.headers,
+                           data=self.payload(content, search_term, meta.get('year')))
             return [{
-                'url': r.get('id'),
+                'url': r.get('id') or 'browse',
                 'title': r.get('title'),
                 'year': r.get('year'),
                 'info': 'Rating %s'%r.get('rating') if 'rating' in r else '',
             } for r in res.json()['data']]
 
-    def sources(self, content, match):
+    def sources(self, content, language, match):
         return [{
             'url': urlparse.urlunparse(('extplayer', self.netflix_id, match['url'], '', '', '')),
             'source': self.netflix_id,
@@ -77,14 +84,14 @@ class Provider(ProviderBase):
         return (None if not url.startswith('extplayer://' + self.netflix_id) else
                 ResolvedURL(url).enrich(meta={'type': self.netflix_id}, size=-1))
 
-    def _session(self):
+    def _session(self, language):
         ses = client.Session(saved_cookies=True)
 
         for cookie in ses.cookies:
-            if cookie.name == 'identifier' and cookie.domain in self.url_base:
+            if cookie.name == 'identifier' and cookie.domain in self.url_base[language]:
                 return ses
 
-        res = ses.get(self.url_base)
+        res = ses.get(self.url_base[language])
         if res.cookies:
             for cke, val in res.cookies.iteritems():
                 log.debug('{m}.{f}: GET cookie: %s=%s', cke, val)

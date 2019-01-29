@@ -109,7 +109,7 @@ class Provider(ProviderBase):
     def sources(self, content, language, match):
         return [{
             'url': urlparse.urlunparse(('extplayer', self.netflix_host, match['url'], '', '', '')),
-            'source': self.netflix_host,
+            'host': self.netflix_host,
         }]
 
     def resolve(self, url):

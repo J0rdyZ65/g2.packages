@@ -59,7 +59,7 @@ class Provider(ProviderBase):
         def _get_raiplay_videos():
             return client.get(self.base_url+self.program_list_url).json()
         try:
-            videos = cache.get(_get_raiplay_videos, 24*60)
+            videos = cache.get(_get_raiplay_videos, cacheopt_expire=24*60)
             items = [{'url': i.get('PathID'),
                       'title': i.get('name'),
                       'year': int(i.get('PLRanno', '0')),
@@ -77,7 +77,7 @@ class Provider(ProviderBase):
         return [{
             'url': match['url'] if content == 'movie' else
                    urlparse.urlunparse(('extplayer', self.raiplay_id, match['url'], '', '', '')),
-            'source': self.raiplay_id,
+            'host': self.raiplay_id,
         }]
 
     def resolve(self, url):

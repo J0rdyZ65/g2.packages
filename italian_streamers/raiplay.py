@@ -54,7 +54,8 @@ class Provider(ProviderBase):
         elif content == 'episode':
             title = unidecode(meta['tvshowtitle'])
             tipology = 'Programmi Tv'
-        year = meta.get('year')
+        else:
+            raise NotImplementedError
 
         def _get_raiplay_videos():
             return client.get(self.base_url+self.program_list_url).json()
@@ -66,8 +67,6 @@ class Provider(ProviderBase):
                       'info': '/'.join(i.get('channel', []))}
                      for az in videos.itervalues() for i in az
                      if i.get('tipology') == tipology and i.get('PathID') and title_fuzzy_equal(i.get('name'), title)]
-            if year:
-                items = [i for i in items if not i['year'] or year-1 <= i['year'] <= year+1]
             return items
         except Exception as ex:
             log.debug('{m}.{f}: %s', repr(ex), trace=True)

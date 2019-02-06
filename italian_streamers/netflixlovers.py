@@ -59,8 +59,8 @@ class Provider(ProviderBase):
         self.headers['Referer'] = url
 
         with client.Session(saved_cookies=True) as ses:
-            catalogue = ses.get(url).content
-            catalogue = unidecode(catalogue)
+            catalogue = ses.get(url).text
+            # catalogue = unidecode(catalogue)
             reqtoken = client.parseDOM(catalogue, 'input', attrs={'name': '__RequestVerificationToken'}, ret='value')[0]
             items = ses.post(url,
                              data={
@@ -85,8 +85,8 @@ class Provider(ProviderBase):
                                  #     1970 - Gli anni '70
                                  #     before70 - Prima del 1970
                                  'Year': 'Any',
-                             }, headers=self.headers).content
-            items = unidecode(items)
+                             }, headers=self.headers).text
+            # items = unidecode(items)
             items = client.parseDOM(items, 'div', attrs={'class': 'moviecard'})
             log.debug('{m}.{f}: moviecards: %s', items)
             matches = []

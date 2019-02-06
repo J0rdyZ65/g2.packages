@@ -112,7 +112,7 @@ class Provider(ProviderBase):
             query['output'] = '20'
             query = urllib.urlencode(query, True)
             url = urlparse.urlunparse((scheme, netloc, path, params, query, fragment))
-            url = client.get(url).content.strip()
+            url = client.get(url).text.strip()
 
             # Heuristic logic to identify internal errors
             if 'error' in url.lower():

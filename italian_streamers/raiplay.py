@@ -18,11 +18,10 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+from __future__ import unicode_literals
 
 import urllib
 import urlparse
-
-from unidecode import unidecode
 
 from g2.libraries import log
 from g2.libraries import cache
@@ -45,20 +44,20 @@ class Provider(ProviderBase):
     }
 
     base_url = "http://www.rai.it"
-    program_list_url = "/dl/RaiTV/RaiPlayMobile/Prod/Config/programmiAZ-elenco.json"
+    program_list_url = "dl/RaiTV/RaiPlayMobile/Prod/Config/programmiAZ-elenco.json"
 
     def search(self, content, language, meta):
         if content == 'movie':
-            title = unidecode(meta['title'])
+            title = meta['title']
             tipology = 'Film'
         elif content == 'episode':
-            title = unidecode(meta['tvshowtitle'])
+            title = meta['tvshowtitle']
             tipology = 'Programmi Tv'
         else:
             raise NotImplementedError
 
         def _get_raiplay_videos():
-            return client.get(self.base_url+self.program_list_url).json()
+            return client.get(urlparse.urljoin(self.base_url, self.program_list_url)).json()
         try:
             videos = cache.get(_get_raiplay_videos, cacheopt_expire=24*60)
             items = [{'url': i.get('PathID'),

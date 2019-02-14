@@ -18,11 +18,10 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+from __future__ import unicode_literals
 
 import re
 import urlparse
-
-from unidecode import unidecode
 
 from g2.libraries import log
 from g2.libraries import client
@@ -60,7 +59,6 @@ class Provider(ProviderBase):
 
         with client.Session(saved_cookies=True) as ses:
             catalogue = ses.get(url).text
-            # catalogue = unidecode(catalogue)
             reqtoken = client.parseDOM(catalogue, 'input', attrs={'name': '__RequestVerificationToken'}, ret='value')[0]
             items = ses.post(url,
                              data={
@@ -73,7 +71,7 @@ class Provider(ProviderBase):
                                  'Sub': 'Any',
                                  'Tag': 'Any',
                                  'Take': '10',
-                                 'Title': unidecode(search_term),
+                                 'Title': search_term,
                                  'Type': search_type,
                                  # (fixme) year filtering:
                                  #     last - Anno in corso
@@ -86,7 +84,6 @@ class Provider(ProviderBase):
                                  #     before70 - Prima del 1970
                                  'Year': 'Any',
                              }, headers=self.headers).text
-            # items = unidecode(items)
             items = client.parseDOM(items, 'div', attrs={'class': 'moviecard'})
             log.debug('{m}.{f}: moviecards: %s', items)
             matches = []

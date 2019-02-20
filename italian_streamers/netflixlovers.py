@@ -98,16 +98,19 @@ class Provider(ProviderBase):
                         # <div class="rating" title="Punteggio Netflix Lovers: 3.97">4,0</div>
                         'info': client.parseDOM(match, 'div', attrs={'class': 'rating'}, ret='title')[0],
                     })
+                    matches[-1].update({k:meta[k] for k in ('season', 'episode') if k in meta})
                 except Exception:
                     pass
 
         return matches
 
     def sources(self, content, language, match):
-        return [{
+        source = {
             'url': urlparse.urlunparse(('extplayer', self.netflix_host, match['url'], '', '', '')),
             'host': self.netflix_host,
-        }]
+        }
+        source.update({k:match[k] for k in ('season', 'episode') if k in match})
+        return [source]
 
     def resolve(self, url):
         return (None if not url.startswith('extplayer://' + self.netflix_host) else

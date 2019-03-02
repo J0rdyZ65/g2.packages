@@ -2,7 +2,7 @@
 
 """
     G2 Add-on Package
-    Copyright (C) 2016-2017 J0rdyZ65
+    Copyright (C) 2016-2019 J0rdyZ65
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -23,13 +23,14 @@ from __future__ import unicode_literals
 import urllib
 import urlparse
 
-from g2.libraries import log
 from g2.libraries import cache
 from g2.libraries import client
 
 from g2.providers import title_fuzzy_equal
 from g2.providers.api import ProviderBase
 from g2.resolvers import ResolvedURL, ResolverError
+
+from g2.platforms import log
 
 
 class Provider(ProviderBase):

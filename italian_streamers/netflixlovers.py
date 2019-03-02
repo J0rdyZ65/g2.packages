@@ -2,7 +2,7 @@
 
 """
     G2 Add-on Package
-    Copyright (C) 2016-2017 J0rdyZ65
+    Copyright (C) 2016-2019 J0rdyZ65
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -23,7 +23,6 @@ from __future__ import unicode_literals
 import re
 import urlparse
 
-from g2.libraries import log
 from g2.libraries import client
 from g2.providers.api import ProviderBase
 from g2.resolvers import ResolvedURL
@@ -85,7 +84,6 @@ class Provider(ProviderBase):
                                  'Year': 'Any',
                              }, headers=self.headers).text
             items = client.parseDOM(items, 'div', attrs={'class': 'moviecard'})
-            log.debug('{m}.{f}: moviecards: %s', items)
             matches = []
             for match in items:
                 try:

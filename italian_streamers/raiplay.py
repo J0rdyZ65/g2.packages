@@ -20,6 +20,7 @@
 
 from __future__ import unicode_literals
 
+import re
 import urllib
 import urlparse
 
@@ -44,16 +45,19 @@ class Provider(ProviderBase):
         'sources': [raiplay_id],
     }
 
-    base_url = "http://www.rai.it"
-    program_list_url = "dl/RaiTV/RaiPlayMobile/Prod/Config/programmiAZ-elenco.json"
+    # (fixme) Retrieve dlbase_url from https://www.raiplay.it/mobile/prod/config/RaiPlay_Config.json / "baseUrl"
+    dlbase_url = 'https://raidl.rai.it/'
+    # (fixme) Retrieve program_list_url from https://www.raiplay.it/mobile/prod/config/RaiPlay_Config.json / "AzTvShow"
+    program_list_url = 'https://www.rai.it/dl/RaiTV/RaiPlayMobile/Prod/Config/programmiAZ-elenco.json'
+    api_play = 'https://www.raiplay.it/atomatic/raiplay-su-service/api/profiles/play'
 
     def search(self, content, language, meta):
         if content == 'movie':
             title = meta['title']
-            tipology = 'Film'
+            tipology = 'film'
         elif content == 'episode':
             title = meta['tvshowtitle']
-            tipology = 'Programmi Tv'
+            tipology = ('serie tv', 'fiction')
         else:
             raise NotImplementedError
 
@@ -64,20 +68,51 @@ class Provider(ProviderBase):
             items = [{'url': i.get('PathID'),
                       'title': i.get('name'),
                       'year': int(i.get('PLRanno', '0')),
-                      'info': '/'.join(i.get('channel', []))}
+                      'info': '/'.join(i.get('channel', [])),
+                      'season': meta.get('season'),
+                      'episode': meta.get('episode')}
                      for az in videos.itervalues() for i in az
-                     if i.get('tipology') == tipology and i.get('PathID') and title_fuzzy_equal(i.get('name'), title)]
+                     if i.get('tipology').lower() in tipology and i.get('PathID') and title_fuzzy_equal(i.get('name'), title)]
             return items
         except Exception as ex:
             log.debug('{m}.{f}: %s', repr(ex), trace=True)
             return []
 
     def sources(self, content, language, match):
-        return [{
-            'url': match['url'] if content == 'movie' else
-                   urlparse.urlunparse(('extplayer', self.raiplay_id, match['url'], '', '', '')),
-            'host': self.raiplay_id,
-        }]
+        srcs = []
+        if content == 'movie':
+            try:
+                url = re.search(r'(/programmi/[^/]+)/', match['url']).group(1)
+                video = client.post(self.api_play, data='{"url": "%s.json"}' % url,
+                                    headers={'Content-type': 'application/json'}, ).json()
+                srcs.append({
+                    'url': video['nextEpisode']['video_url'],
+                    'host': self.raiplay_id,
+                })
+            except Exception:
+                pass
+        elif content == 'episode':
+            with client.Session() as session:
+                url = re.search(r'(/programmi/.+)', match['url']).group(1)
+                for block in session.get(urlparse.urljoin(self.dlbase_url, url)).json()['Blocks']:
+                    if 'episodi' not in block.get('Name', '').lower():
+                        continue
+                    for blockset in block['Sets']:
+                        if 'stagione' not in blockset.get('Name', '').lower():
+                            continue
+                        url = re.search(r'(/programmi/.+)', blockset['url']).group(1)
+                        for episode in session.get(urlparse.urljoin(self.dlbase_url, url)).json()['items']:
+                            if episode.get('stagione') and match['season'] and episode['stagione'] != match['season']:
+                                continue
+                            if episode.get('episodio') and match['episode'] and episode['episodio'] != match['episode']:
+                                continue
+                            video = session.get(urlparse.urljoin(self.dlbase_url, episode['pathID'])).json()
+                            srcs.append({
+                                'url': video['video']['contentUrl'],
+                                'host': self.raiplay_id
+                            })
+
+        return srcs
 
     def resolve(self, url):
         log.debug('{m}.{f}: URL: %s', url)
@@ -85,31 +120,14 @@ class Provider(ProviderBase):
         if url.startswith('extplayer://' + self.raiplay_id):
             return ResolvedURL(url).enrich(meta={'type': self.raiplay_id}, size=-1)
 
-        with client.Session() as session:
-            video = session.get(url).json()
-            if not video.get('pathFirstItem'):
-                return ResolverError('Content not available')
-            video = session.get(self.base_url+video['pathFirstItem']).json()
-            if not video.get('video'):
-                return ResolverError('Content not available')
-            url = video['video'].get('contentUrl')
-            if not url:
-                return ResolverError('Content not available')
+        log.debug('{m}.{f}: Content URL: %s', url)
 
         if (url.startswith('http://mediapolis.rai.it/relinker/relinkerServlet.htm') or
                 url.startswith('http://mediapolisvod.rai.it/relinker/relinkerServlet.htm') or
                 url.startswith('http://mediapolisevent.rai.it/relinker/relinkerServlet.htm')):
-            log.debug('{m}.{f}: Relinker URL: %s', url)
-            # output=20 url in body
-            # output=23 HTTP 302 redirect
-            # output=25 url and other parameters in body, space separated
-            # output=44 XML (not well formatted) in body
-            # output=47 json in body
-            # pl=native,flash,silverlight
-            # A stream will be returned depending on the UA (and pl parameter?)
             scheme, netloc, path, params, query, fragment = urlparse.urlparse(url)
             query = urlparse.parse_qs(query)
-            query['output'] = '20'
+            query['output'] = '20' # output=20 url in body
             query = urllib.urlencode(query, True)
             url = urlparse.urlunparse((scheme, netloc, path, params, query, fragment))
             url = client.get(url).text.strip()
@@ -121,5 +139,6 @@ class Provider(ProviderBase):
             # Workaround to normalize URL if the relinker doesn't
             url = urllib.quote(url, safe="%/:=&?~#+!$,;'@()*[]")
 
-        log.debug('{m}.{f}: Resolved URL: %s', url)
+        log.debug('{m}.{f}: Media URL: %s', url)
+
         return ResolvedURL(url)

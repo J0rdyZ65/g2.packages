@@ -83,7 +83,7 @@ class Provider(ProviderBase):
                                  #     before70 - Prima del 1970
                                  'Year': 'Any',
                              }, headers=self.headers).text
-            items = client.parseDOM(items, 'div', attrs={'class': 'moviecard'})
+            items = client.parseDOM(items, 'div', attrs={'class': 'mcard'})
             matches = []
             for match in items:
                 try:

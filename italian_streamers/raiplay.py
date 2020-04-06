@@ -62,7 +62,7 @@ class Provider(ProviderBase):
             raise NotImplementedError
 
         def _get_raiplay_videos():
-            return client.get(urlparse.urljoin(self.base_url, self.program_list_url)).json()
+            return client.get(self.program_list_url).json()
         try:
             videos = cache.get(_get_raiplay_videos, cacheopt_expire=24*60)
             items = [{'url': i.get('PathID'),

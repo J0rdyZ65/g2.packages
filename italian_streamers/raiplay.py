@@ -26,11 +26,8 @@ import urlparse
 
 from g2.libraries import cache
 from g2.libraries import client
-
-from g2.providers import title_fuzzy_equal
 from g2.providers.api import ProviderBase
 from g2.resolvers import ResolvedURL, ResolverError
-
 from g2.platforms import log
 
 
@@ -72,7 +69,8 @@ class Provider(ProviderBase):
                       'season': meta.get('season'),
                       'episode': meta.get('episode')}
                      for az in videos.itervalues() for i in az
-                     if i.get('tipology').lower() in tipology and i.get('PathID') and title_fuzzy_equal(i.get('name'), title)]
+                     if i.get('tipology').lower() in tipology and i.get('PathID')
+                     and client.title_fuzzy_equal(title, i.get('name'))]
             return items
         except Exception as ex:
             log.debug('{m}.{f}: %s', repr(ex), trace=True)

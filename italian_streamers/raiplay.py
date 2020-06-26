@@ -108,8 +108,8 @@ class Provider(ProviderBase):
                                         'season': match['season'],
                                         'episode': match['episode'],
                                     })
-                            except Exception as ex:
-                                log.debug('{m}.{f}: %s', ex, trace=True)
+                            except Exception:
+                                pass
 
         return srcs
 

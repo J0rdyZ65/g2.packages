@@ -2,7 +2,7 @@
 
 """
     G2 Add-on Package
-    Copyright (C) 2016-2019 J0rdyZ65
+    Copyright (C) 2016-2020 J0rdyZ65
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -21,14 +21,14 @@
 from __future__ import unicode_literals
 
 import re
-import urllib
-import urlparse
+from six.moves import urllib
 
 from g2.libraries import cache
+from g2.libraries import fuzzy
 from g2.libraries import client
-from g2.providers.api import ProviderBase
-from g2.resolvers import ResolvedURL, ResolverError
 from g2.platforms import log
+from g2.providers.api import ProviderBase
+from g2.resolvers.api import ResolvedURL, ResolverError
 
 
 class Provider(ProviderBase):
@@ -50,10 +50,8 @@ class Provider(ProviderBase):
 
     def search(self, content, language, meta):
         if content == 'movie':
-            title = meta['title']
             tipology = 'film'
         elif content == 'episode':
-            title = meta['tvshowtitle']
             tipology = ('serie tv', 'fiction')
         else:
             raise NotImplementedError
@@ -62,16 +60,17 @@ class Provider(ProviderBase):
             return client.get(self.program_list_url).json()
         try:
             videos = cache.get(_get_raiplay_videos, cacheopt_expire=24*60)
-            items = [{'url': i.get('PathID'),
-                      'title': i.get('name'),
-                      'year': int(i.get('PLRanno', '0')),
-                      'info': '/'.join(i.get('channel', [])),
-                      'season': meta.get('season'),
-                      'episode': meta.get('episode')}
-                     for az in videos.itervalues() for i in az
-                     if i.get('tipology').lower() in tipology and i.get('PathID')
-                     and client.title_fuzzy_equal(title, i.get('name'))]
-            return items
+            return [{
+                'url': i.get('PathID'),
+                'title': i.get('name'),
+                'year': int(i.get('PLRanno', '0')),
+                'info': '/'.join(i.get('channel', [])),
+                'season': meta.get('season'),
+                'episode': meta.get('episode')
+            }
+                    for az in videos.itervalues() for i in az
+                    if i.get('tipology').lower() in tipology and i.get('PathID')
+                    and fuzzy.content_title_equal(content, meta, i.get('name'))]
         except Exception as ex:
             log.debug('{m}.{f}: %s', repr(ex), trace=True)
             return []
@@ -90,25 +89,27 @@ class Provider(ProviderBase):
             except Exception:
                 pass
         elif content == 'episode':
-            with client.Session() as session:
+            with client.Session() as ses:
                 url = re.search(r'(/programmi/.+)', match['url']).group(1)
-                for block in session.get(urlparse.urljoin(self.dlbase_url, url)).json()['Blocks']:
+                for block in ses.get(urllib.parse.urljoin(self.dlbase_url, url)).json()['Blocks']:
                     if 'episodi' not in block.get('Name', '').lower():
                         continue
                     for blockset in block['Sets']:
                         if 'stagione' not in blockset.get('Name', '').lower():
                             continue
                         url = re.search(r'(/programmi/.+)', blockset['url']).group(1)
-                        for episode in session.get(urlparse.urljoin(self.dlbase_url, url)).json()['items']:
-                            if episode.get('stagione') and match['season'] and episode['stagione'] != match['season']:
-                                continue
-                            if episode.get('episodio') and match['episode'] and episode['episodio'] != match['episode']:
-                                continue
-                            video = session.get(urlparse.urljoin(self.dlbase_url, episode['pathID'])).json()
-                            srcs.append({
-                                'url': video['video']['contentUrl'],
-                                'host': self.raiplay_id
-                            })
+                        for episode in ses.get(urllib.parse.urljoin(self.dlbase_url, url)).json()['items']:
+                            try:
+                                if int(episode['stagione']) == match['season'] and int(episode['episodio']) == match['episode']:
+                                    video = ses.get(urllib.parse.urljoin(self.dlbase_url, episode['pathID'])).json()
+                                    srcs.append({
+                                        'url': video['video']['contentUrl'],
+                                        'host': self.raiplay_id,
+                                        'season': match['season'],
+                                        'episode': match['episode'],
+                                    })
+                            except Exception as ex:
+                                log.debug('{m}.{f}: %s', ex, trace=True)
 
         return srcs
 
@@ -116,18 +117,18 @@ class Provider(ProviderBase):
         log.debug('{m}.{f}: URL: %s', url)
 
         if url.startswith('extplayer://' + self.raiplay_id):
-            return ResolvedURL(url).enrich(meta={'type': self.raiplay_id}, size=-1)
+            return ResolvedURL(url)
 
         log.debug('{m}.{f}: Content URL: %s', url)
 
         if (url.startswith('http://mediapolis.rai.it/relinker/relinkerServlet.htm') or
                 url.startswith('http://mediapolisvod.rai.it/relinker/relinkerServlet.htm') or
                 url.startswith('http://mediapolisevent.rai.it/relinker/relinkerServlet.htm')):
-            scheme, netloc, path, params, query, fragment = urlparse.urlparse(url)
-            query = urlparse.parse_qs(query)
+            scheme, netloc, path, params, query, fragment = urllib.parse.urlparse(url)
+            query = urllib.parse.parse_qs(query)
             query['output'] = '20' # output=20 url in body
-            query = urllib.urlencode(query, True)
-            url = urlparse.urlunparse((scheme, netloc, path, params, query, fragment))
+            query = urllib.parse.urlencode(query, True)
+            url = urllib.parse.urlunparse((scheme, netloc, path, params, query, fragment))
             url = client.get(url).text.strip()
 
             # Heuristic logic to identify internal errors
@@ -135,7 +136,7 @@ class Provider(ProviderBase):
                 return ResolverError('URL cannot be resolved')
 
             # Workaround to normalize URL if the relinker doesn't
-            url = urllib.quote(url, safe="%/:=&?~#+!$,;'@()*[]")
+            url = urllib.parse.quote(url, safe="%/:=&?~#+!$,;'@()*[]")
 
         log.debug('{m}.{f}: Media URL: %s', url)
 
